@@ -1,5 +1,7 @@
-require_relative "config"
-require_relative "lastfm"
+# frozen_string_literal: true
+
+require_relative 'config'
+require_relative 'lastfm'
 
 module Scorer
   PROFILE_ARTISTS_DOWNCASED = TASTE_PROFILE[:artists].map(&:downcase).freeze
@@ -17,15 +19,13 @@ module Scorer
     { artist_score: a, tag_score: t, metacritic_score: m, total: a + t + m }
   end
 
-  private
-
   def self.artist_score(artist)
     return 40.0 if PROFILE_ARTISTS_DOWNCASED.include?(artist.downcase)
 
     best_match = LastFm.similar_artists(artist)
-      .select { |s| PROFILE_ARTISTS_DOWNCASED.include?(s[:name].downcase) }
-      .map { |s| s[:match] }
-      .max
+                       .select { |s| PROFILE_ARTISTS_DOWNCASED.include?(s[:name].downcase) }
+                       .map { |s| s[:match] }
+                       .max
 
     best_match ? best_match * 35.0 : 0.0
   end
@@ -43,17 +43,17 @@ module Scorer
   end
 end
 
-if __FILE__ == $0
-  require "dotenv/load"
+if __FILE__ == $PROGRAM_NAME
+  require 'dotenv/load'
 
   test_cases = [
-    { artist: "Slowdive",      title: "Test Album", tags: ["shoegaze", "dream pop"], metacritic_score: 85 },
-    { artist: "Taylor Swift",  title: "Test Album", tags: ["pop"],                   metacritic_score: 90 },
-    { artist: "Fleeting Joys", title: "Test Album", tags: ["shoegaze"],              metacritic_score: nil },
+    { artist: 'Slowdive',      title: 'Test Album', tags: ['shoegaze', 'dream pop'], metacritic_score: 85 },
+    { artist: 'Taylor Swift',  title: 'Test Album', tags: ['pop'],                   metacritic_score: 90 },
+    { artist: 'Fleeting Joys', title: 'Test Album', tags: ['shoegaze'],              metacritic_score: nil }
   ]
 
   test_cases.each do |album|
     result = Scorer.score(album)
-    puts "%-20s => %.2f / 100" % [album[:artist], result]
+    puts format('%-20s => %.2f / 100', album[:artist], result)
   end
 end

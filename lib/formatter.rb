@@ -1,6 +1,8 @@
-require "tty-table"
-require "pastel"
-require_relative "lastfm"
+# frozen_string_literal: true
+
+require 'tty-table'
+require 'pastel'
+require_relative 'lastfm'
 
 module Formatter
   PASTEL = Pastel.new
@@ -22,33 +24,30 @@ module Formatter
     end
 
     table = TTY::Table.new(
-      header: ["RANK", "ARTIST", "TITLE", "SCORE", "SOURCE", "TAGS", "APPLE MUSIC"],
-      rows:   rows
+      header: ['RANK', 'ARTIST', 'TITLE', 'SCORE', 'SOURCE', 'TAGS', 'APPLE MUSIC'],
+      rows: rows
     )
 
     # Total: borders(8) + padding(14) + content(4+25+45+5+6+28+10=123) = 145
     puts table.render(:unicode,
-      padding:       [0, 1],
-      column_widths: [4, ARTIST_WIDTH, TITLE_WIDTH, 5, 6, 28, 10],
-      width:         160,
-      multiline:     false
-    ) do |renderer|
+                      padding: [0, 1],
+                      column_widths: [4, ARTIST_WIDTH, TITLE_WIDTH, 5, 6, 28, 10],
+                      width: 160,
+                      multiline: false) do |renderer|
       renderer.border.separator = :each_row
     end
 
     puts
-    puts PASTEL.dim("Apple Music links:")
+    puts PASTEL.dim('Apple Music links:')
     albums.each_with_index do |album, i|
       puts "  #{i + 1}. #{album[:apple_music_url]}"
     end
   end
 
-  private
-
   def self.truncate(str, max)
     return str if str.length <= max
 
-    str[0, max - 1] + "…"
+    "#{str[0, max - 1]}…"
   end
 
   def self.score_cell(score)
@@ -65,14 +64,14 @@ module Formatter
   def self.tags_cell(album)
     tags = Array(album[:tags])
     tags = LastFm.artist_tags(album[:artist]) if tags.empty?
-    tags.first(3).join(", ")
+    tags.first(3).join(', ')
   end
 
   def self.source_cell(source)
     case source
-    when "aoty"         then PASTEL.cyan("aoty")
-    when "metacritic"   then PASTEL.yellow("metacritic")
-    when "musicbrainz"  then PASTEL.magenta("musicbrainz")
+    when 'aoty'         then PASTEL.cyan('aoty')
+    when 'metacritic'   then PASTEL.yellow('metacritic')
+    when 'musicbrainz'  then PASTEL.magenta('musicbrainz')
     else source
     end
   end

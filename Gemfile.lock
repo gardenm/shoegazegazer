@@ -1,6 +1,9 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    addressable (2.8.9)
+      public_suffix (>= 2.0.2, < 8.0)
+    ast (2.4.3)
     bigdecimal (4.0.1)
     csv (3.3.5)
     dotenv (3.2.0)
@@ -8,6 +11,14 @@ GEM
       csv
       mini_mime (>= 1.0.0)
       multi_xml (>= 0.5.2)
+    json (2.19.2)
+    json-schema (6.2.0)
+      addressable (~> 2.8)
+      bigdecimal (>= 3.1, < 5)
+    language_server-protocol (3.17.0.5)
+    lint_roller (1.1.0)
+    mcp (0.9.0)
+      json-schema (>= 4.1)
     mini_mime (1.1.5)
     multi_xml (0.8.1)
       bigdecimal (>= 3.1, < 5)
@@ -27,9 +38,33 @@ GEM
       racc (~> 1.4)
     nokogiri (1.19.2-x86_64-linux-musl)
       racc (~> 1.4)
+    parallel (1.27.0)
+    parser (3.3.10.2)
+      ast (~> 2.4.1)
+      racc
     pastel (0.8.0)
       tty-color (~> 0.5)
+    prism (1.9.0)
+    public_suffix (7.0.5)
     racc (1.8.1)
+    rainbow (3.1.1)
+    regexp_parser (2.11.3)
+    rubocop (1.85.1)
+      json (~> 2.3)
+      language_server-protocol (~> 3.17.0.2)
+      lint_roller (~> 1.1.0)
+      mcp (~> 0.6)
+      parallel (~> 1.10)
+      parser (>= 3.3.0.2)
+      rainbow (>= 2.2.2, < 4.0)
+      regexp_parser (>= 2.9.3, < 3.0)
+      rubocop-ast (>= 1.49.0, < 2.0)
+      ruby-progressbar (~> 1.7)
+      unicode-display_width (>= 2.4.0, < 4.0)
+    rubocop-ast (1.49.1)
+      parser (>= 3.3.7.2)
+      prism (~> 1.7)
+    ruby-progressbar (1.13.0)
     strings (0.2.1)
       strings-ansi (~> 0.2)
       unicode-display_width (>= 1.5, < 3.0)
@@ -62,6 +97,7 @@ DEPENDENCIES
   httparty
   nokogiri
   pastel
+  rubocop
   tty-spinner
   tty-table
 

@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
-source "https://rubygems.org"
+source 'https://rubygems.org'
 
-gem "httparty"
-gem "nokogiri"
-gem "tty-table"
-gem "pastel"
-gem "tty-spinner"
-gem "dotenv"
+gem 'dotenv'
+gem 'httparty'
+gem 'nokogiri'
+gem 'pastel'
+gem 'rubocop'
+gem 'tty-spinner'
+gem 'tty-table'

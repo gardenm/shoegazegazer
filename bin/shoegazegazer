@@ -1,19 +1,31 @@
-#!/usr/bin/env ruby
+# frozen_string_literal: true
 
-require "dotenv/load"
-require "tty-spinner"
-require "pastel"
-require_relative "../lib/config"
-require_relative "../lib/scraper"
-require_relative "../lib/lastfm"
-require_relative "../lib/scorer"
-require_relative "../lib/formatter"
+# !/usr/bin/env ruby
+
+require 'dotenv/load'
+require 'tty-spinner'
+require 'pastel'
+
+# Parse --config path/to/custom.yml before loading config
+if (idx = ARGV.index('--config'))
+  config_path = ARGV[idx + 1]
+  raise '--config requires a path argument' if config_path.nil?
+
+  ARGV.slice!(idx, 2)
+  ENV['SHOEGAZEGAZER_CONFIG'] = File.expand_path(config_path)
+end
+
+require_relative '../lib/config'
+require_relative '../lib/scraper'
+require_relative '../lib/lastfm'
+require_relative '../lib/scorer'
+require_relative '../lib/formatter'
 
 pastel  = Pastel.new
-spinner = TTY::Spinner.new("[:spinner] :title", format: :dots)
+spinner = TTY::Spinner.new('[:spinner] :title', format: :dots)
 
 # Step 1 — fetch from all sources + dedup
-spinner.update(title: "Fetching new releases...")
+spinner.update(title: 'Fetching new releases...')
 spinner.auto_spin
 aoty_albums  = Scraper.fetch_aoty
 mb_albums    = Scraper.fetch_musicbrainz
@@ -24,26 +36,26 @@ spinner.success(pastel.green("done (#{aoty_albums.size} AOTY + #{mb_albums.size}
 albums = albums.reject { |a| !a[:score].nil? && a[:score] < TASTE_PROFILE[:min_score] }
 
 # Step 3 — enrich tags + score
-spinner = TTY::Spinner.new("[:spinner] :title", format: :dots)
-spinner.update(title: "Scoring against your taste profile...")
+spinner = TTY::Spinner.new('[:spinner] :title', format: :dots)
+spinner.update(title: 'Scoring against your taste profile...')
 spinner.auto_spin
 
 scored = albums.map do |album|
   album_tags = LastFm.album_tags(album[:artist], album[:title])
   similarity = Scorer.score(
-    artist:           album[:artist],
-    title:            album[:title],
-    tags:             album_tags,
+    artist: album[:artist],
+    title: album[:title],
+    tags: album_tags,
     metacritic_score: album[:score]
   )
   album.merge(
     similarity_score: similarity,
-    tags:             album_tags,
-    apple_music_url:  Scraper.apple_music_url(album[:artist], album[:title])
+    tags: album_tags,
+    apple_music_url: Scraper.apple_music_url(album[:artist], album[:title])
   )
 end
 
-spinner.success(pastel.green("done"))
+spinner.success(pastel.green('done'))
 
 # Step 4 — sort, take top 20
 results = scored.sort_by { |a| -a[:similarity_score] }.first(20)
@@ -52,4 +64,4 @@ puts
 Formatter.print_results(results)
 
 puts
-puts pastel.dim("Powered by Last.fm • Album of the Year • MusicBrainz • #{Time.now.strftime("%A, %B %d %Y")}")
+puts pastel.dim("Powered by Last.fm • Album of the Year • MusicBrainz • #{Time.now.strftime('%A, %B %d %Y')}")
