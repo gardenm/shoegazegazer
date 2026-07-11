@@ -5,6 +5,7 @@ require 'json'
 require 'date'
 require 'uri'
 require_relative '../lib/database'
+require_relative '../lib/feedback'
 
 # Read-only browser for the score database. Scraping and scoring stay in
 # the CLI — this just makes the results pleasant to explore, so it runs
@@ -32,8 +33,11 @@ class ShoegazegazerWeb < Sinatra::Base
     def scored_albums(profile)
       db[:albums]
         .join(:album_scores, album_id: :id)
+        .left_join(:ratings, album_id: Sequel[:albums][:id],
+                             profile_name: profile)
         .where(Sequel[:album_scores][:profile_name] => profile)
         .select(
+          Sequel[:albums][:id].as(:album_id),
           Sequel[:albums][:artist],
           Sequel[:albums][:title],
           Sequel[:albums][:release_date],
@@ -41,7 +45,8 @@ class ShoegazegazerWeb < Sinatra::Base
           Sequel[:albums][:url],
           Sequel[:albums][:aoty_score],
           Sequel[:album_scores][:similarity_score],
-          Sequel[:album_scores][:tags]
+          Sequel[:album_scores][:tags],
+          Sequel[:ratings][:rating]
         )
     end
 
@@ -117,6 +122,30 @@ class ShoegazegazerWeb < Sinatra::Base
     @recent = recent_digest(@profile)
     @catalogue = back_catalogue(@profile)
     erb :profile
+  end
+
+  # Thumbs up/down. Stores the rating, then instantly re-ranks the whole
+  # profile from the saved score components — no Last.fm calls.
+  post '/rate' do
+    profile = params[:profile]
+    halt 404, "Unknown profile: #{h(profile)}" unless profiles.include?(profile)
+
+    rating = begin
+      Integer(params[:rating])
+    rescue StandardError
+      nil
+    end
+    album_id = begin
+      Integer(params[:album_id])
+    rescue StandardError
+      nil
+    end
+    halt 400, 'rating must be -1, 0, or 1' unless [-1, 0, 1].include?(rating)
+    halt 400, 'unknown album' if album_id.nil? || db[:albums].where(id: album_id).empty?
+
+    Feedback.upsert_rating(db, album_id: album_id, profile_name: profile, rating: rating)
+    Feedback.reapply(db, profile)
+    redirect to("/p/#{profile}")
   end
 
   get '/stats' do

@@ -121,7 +121,7 @@ class TestDatabaseSchema < Minitest::Test
       Database.migrate # second call should not raise
 
       db = Database.db
-      assert_equal 3, db.tables.size
+      assert_equal 4, db.tables.size
     ensure
       Database.send(:remove_const, :DB_PATH)
       Database.const_set(:DB_PATH, old_path)

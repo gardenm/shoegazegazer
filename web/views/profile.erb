@@ -2,42 +2,14 @@
 <% if @recent.empty? %>
   <p class="empty">Nothing scored from the last two weeks — run <code>bin/shoegazegazer --profile <%= h @profile %></code> to fetch and score new releases.</p>
 <% else %>
-  <table>
-    <tr><th></th><th>Artist</th><th>Album</th><th>Score</th><th>Released</th><th>Tags</th><th></th></tr>
-    <% @recent.each_with_index do |row, i| %>
-      <tr>
-        <td class="rank"><%= i + 1 %></td>
-        <td class="artist"><%= h row[:artist] %></td>
-        <td class="title">
-          <% if row[:url] %><a href="<%= h row[:url] %>"><%= h row[:title] %></a><% else %><%= h row[:title] %><% end %>
-        </td>
-        <td class="score <%= score_class(row[:similarity_score]) %>"><%= format('%.1f', row[:similarity_score]) %></td>
-        <td class="date"><%= h row[:release_date] %></td>
-        <td><span class="tags"><% parse_tags(row[:tags]).each do |tag| %><span class="tag"><%= h tag %></span><% end %></span></td>
-        <td class="listen"><a href="<%= h apple_music_url(row[:artist], row[:title]) %>">listen →</a></td>
-      </tr>
-    <% end %>
-  </table>
+  <%= erb :_album_table, layout: false, locals: { rows: @recent, profile: @profile } %>
 <% end %>
 
 <h2>Back catalogue — high scorers from the past year</h2>
 <% if @catalogue.empty? %>
   <p class="empty">No albums scoring 50+ yet — run <code>bin/shoegazegazer --profile <%= h @profile %> --missed</code> to score the past year.</p>
 <% else %>
-  <table>
-    <tr><th></th><th>Artist</th><th>Album</th><th>Score</th><th>Released</th><th>Tags</th><th></th></tr>
-    <% @catalogue.each_with_index do |row, i| %>
-      <tr>
-        <td class="rank"><%= i + 1 %></td>
-        <td class="artist"><%= h row[:artist] %></td>
-        <td class="title">
-          <% if row[:url] %><a href="<%= h row[:url] %>"><%= h row[:title] %></a><% else %><%= h row[:title] %><% end %>
-        </td>
-        <td class="score <%= score_class(row[:similarity_score]) %>"><%= format('%.1f', row[:similarity_score]) %></td>
-        <td class="date"><%= h row[:release_date] %></td>
-        <td><span class="tags"><% parse_tags(row[:tags]).each do |tag| %><span class="tag"><%= h tag %></span><% end %></span></td>
-        <td class="listen"><a href="<%= h apple_music_url(row[:artist], row[:title]) %>">listen →</a></td>
-      </tr>
-    <% end %>
-  </table>
+  <%= erb :_album_table, layout: false, locals: { rows: @catalogue, profile: @profile } %>
 <% end %>
+
+<p class="hint">▲ more like this / ▼ less like this — ratings retune this profile's scores instantly and shape future digests.</p>

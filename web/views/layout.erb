@@ -100,6 +100,21 @@
       white-space: nowrap;
     }
     .listen a { color: var(--accent); text-decoration: none; font-size: .85rem; white-space: nowrap; }
+    .rate { white-space: nowrap; }
+    .rate form { display: inline; }
+    .thumb {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: .1rem .45rem;
+      font-size: .8rem;
+      cursor: pointer;
+    }
+    .thumb:hover { color: var(--text); border-color: var(--muted); }
+    .thumb-up { color: var(--high); border-color: var(--high); }
+    .thumb-down { color: #d98a8a; border-color: #d98a8a; }
+    .hint { color: var(--muted); font-size: .8rem; margin-top: 2rem; }
     .empty { color: var(--muted); padding: 1.5rem 0; }
     .statgrid {
       display: grid;

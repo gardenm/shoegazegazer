@@ -168,4 +168,70 @@ class TestWebApp < Minitest::Test
     assert_includes last_response.body, 'rel="manifest"'
     assert_includes last_response.body, 'apple-touch-icon'
   end
+
+  # --- POST /rate (feedback loop) ---
+
+  def test_rating_buttons_rendered_on_profile_page
+    seed_scored_album!
+    get '/p/shoegaze'
+
+    assert_includes last_response.body, 'action="/rate"'
+    assert_includes last_response.body, 'more like this'
+    assert_includes last_response.body, 'less like this'
+  end
+
+  def test_rate_stores_rating_and_redirects
+    album = seed_scored_album!
+    post '/rate', album_id: album[:id], profile: 'shoegaze', rating: '1'
+
+    assert_equal 302, last_response.status
+    assert_includes last_response.headers['Location'], '/p/shoegaze'
+    assert_equal 1, @db[:ratings].where(album_id: album[:id]).first[:rating]
+  end
+
+  def test_rate_reranks_profile_scores
+    album = seed_scored_album! # components 20 + 30 + 25 = 75 base
+    post '/rate', album_id: album[:id], profile: 'shoegaze', rating: '1'
+
+    score = @db[:album_scores].where(album_id: album[:id]).first[:similarity_score]
+    # base 75 + artist boost 12 + own-tag affinity 1.5 = 88.5
+    assert_in_delta 88.5, score, 0.01
+  end
+
+  def test_rate_zero_clears_rating
+    album = seed_scored_album!
+    post '/rate', album_id: album[:id], profile: 'shoegaze', rating: '1'
+    post '/rate', album_id: album[:id], profile: 'shoegaze', rating: '0'
+
+    assert_equal 0, @db[:ratings].count
+  end
+
+  def test_active_rating_reflected_in_buttons
+    album = seed_scored_album!
+    post '/rate', album_id: album[:id], profile: 'shoegaze', rating: '1'
+    follow_redirect!
+
+    assert_includes last_response.body, 'thumb-up'
+  end
+
+  def test_rate_rejects_invalid_rating
+    album = seed_scored_album!
+    post '/rate', album_id: album[:id], profile: 'shoegaze', rating: '5'
+
+    assert_equal 400, last_response.status
+  end
+
+  def test_rate_rejects_unknown_album
+    seed_scored_album!
+    post '/rate', album_id: 9999, profile: 'shoegaze', rating: '1'
+
+    assert_equal 400, last_response.status
+  end
+
+  def test_rate_rejects_unknown_profile
+    album = seed_scored_album!
+    post '/rate', album_id: album[:id], profile: 'nope', rating: '1'
+
+    assert_equal 404, last_response.status
+  end
 end

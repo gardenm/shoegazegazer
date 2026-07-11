@@ -13,6 +13,7 @@ require_relative '../lib/database'
 require_relative '../lib/scraper'
 require_relative '../lib/lastfm'
 require_relative '../lib/scorer'
+require_relative '../lib/feedback'
 
 # Shared helpers for tests that need an in-memory SQLite database.
 # Each test gets a fresh DB — no cross-test pollution.
@@ -45,6 +46,15 @@ module TestDBHelper
       DateTime :scraped_at, null: false
       String :source, null: false
       Integer :albums_found
+    end
+
+    db.create_table(:ratings) do
+      primary_key :id
+      foreign_key :album_id, :albums, null: false
+      String :profile_name, null: false
+      Integer :rating, null: false
+      DateTime :rated_at
+      unique %i[album_id profile_name]
     end
 
     db.create_table(:album_scores) do

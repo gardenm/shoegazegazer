@@ -67,6 +67,7 @@ require_relative '../lib/database'
 require_relative '../lib/scraper'
 require_relative '../lib/lastfm'
 require_relative '../lib/scorer'
+require_relative '../lib/feedback'
 require_relative '../lib/formatter'
 
 PASTEL = Pastel.new
@@ -89,13 +90,19 @@ def below_min_score?(score)
   !score.nil? && score < TASTE_PROFILE[:min_score]
 end
 
+def feedback_prefs
+  @feedback_prefs ||= Feedback.prefs(DB, TASTE_PROFILE_NAME)
+end
+
 # Score one album via Last.fm and persist the breakdown for this profile.
-# Returns [similarity_score, tags].
+# Thumbs up/down history shifts the total. Returns [similarity_score, tags].
 def score_and_store(album_id:, artist:, title:, aoty_score:)
   tags = LastFm.album_tags(artist, title)
   breakdown = Scorer.score_breakdown(
     artist: artist, title: title, tags: tags, metacritic_score: aoty_score
   )
+  adjustment = Feedback.adjustment(feedback_prefs, artist, tags)
+  breakdown[:total] = (breakdown[:total] + adjustment).clamp(0.0, 100.0)
   Scorer.upsert_score(DB, album_id: album_id, profile_name: TASTE_PROFILE_NAME,
                           breakdown: breakdown, tags: tags)
   [breakdown[:total], tags]

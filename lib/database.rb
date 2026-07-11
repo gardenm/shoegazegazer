@@ -42,6 +42,15 @@ module Database
       Integer :albums_found
     end
 
+    connection.create_table?(:ratings) do
+      primary_key :id
+      foreign_key :album_id, :albums, null: false
+      String :profile_name, null: false
+      Integer :rating, null: false # +1 (more like this) or -1 (less)
+      DateTime :rated_at
+      unique %i[album_id profile_name]
+    end
+
     connection.create_table?(:album_scores) do
       primary_key :id
       foreign_key :album_id, :albums

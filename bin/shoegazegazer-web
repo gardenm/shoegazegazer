@@ -3,6 +3,8 @@
 
 require_relative '../web/app'
 
+Database.migrate
+
 ShoegazegazerWeb.run!(
   server: :puma,
   bind: ENV.fetch('HOST', '127.0.0.1'),

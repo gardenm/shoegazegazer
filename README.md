@@ -81,6 +81,20 @@ the data with `bin/shoegazegazer --all` and reload.
 There's also a JSON endpoint per profile for shortcuts/automations:
 `GET /api/digest/:profile`.
 
+### Feedback loop
+
+Every album row has ▲/▼ buttons: *more like this* / *less like this*.
+Ratings are stored per profile and feed back into scoring:
+
+- artists you liked get **+12** on future albums; disliked artists get **−15**
+- the tags of rated albums build a per-profile affinity — each net vote on a
+  matching tag is worth ±1.5 points (capped at ±3 per tag, ±8 total)
+
+Rating an album instantly re-ranks the whole profile from the stored score
+components (no API calls), and the weekly/`--missed` runs apply the same
+adjustment when scoring new albums. Click an active button again to clear
+the rating.
+
 Bind/port via env: `HOST=0.0.0.0 PORT=8080 bundle exec bin/shoegazegazer-web`.
 
 ## Run it like a Mac app
