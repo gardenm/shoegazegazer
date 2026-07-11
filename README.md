@@ -67,6 +67,22 @@ the tool for can slip past. `--missed` scores anything from the last 12
 months that this profile hasn't rated yet, then shows the top 20 albums
 scoring ≥ 50 that haven't been surfaced in the last 30 days.
 
+## Web interface
+
+```
+bundle exec bin/shoegazegazer-web        # http://127.0.0.1:4567
+```
+
+A read-only browser for the score database — one tab per profile, each
+showing the fresh digest (last 14 days) and the year's high scorers, plus a
+stats page. It never scrapes or scores (so it needs no Last.fm key); refresh
+the data with `bin/shoegazegazer --all` and reload.
+
+There's also a JSON endpoint per profile for shortcuts/automations:
+`GET /api/digest/:profile`.
+
+Bind/port via env: `HOST=0.0.0.0 PORT=8080 bundle exec bin/shoegazegazer-web`.
+
 ## Tests
 
 ```

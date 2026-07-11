@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative '../web/app'
+
+ShoegazegazerWeb.run!(
+  server: :puma,
+  bind: ENV.fetch('HOST', '127.0.0.1'),
+  port: Integer(ENV.fetch('PORT', '4567'))
+)

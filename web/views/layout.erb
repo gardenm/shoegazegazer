@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>shoegazegazer</title>
+  <style>
+    :root {
+      --bg: #14121a;
+      --panel: #1d1a26;
+      --border: #2e2a3a;
+      --text: #d8d4e3;
+      --muted: #797388;
+      --accent: #b49ae4;
+      --high: #8fd6a8;
+      --mid: #e3c878;
+      --low: #907f9e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    header {
+      padding: 1.4rem 2rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    h1 {
+      margin: 0 0 .2rem;
+      font-size: 1.3rem;
+      letter-spacing: .12em;
+      font-weight: 600;
+    }
+    h1 a { color: var(--accent); text-decoration: none; }
+    .tagline { color: var(--muted); font-size: .85rem; margin: 0 0 1rem; }
+    nav { display: flex; gap: .25rem; flex-wrap: wrap; }
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      padding: .45rem .9rem;
+      border-radius: 8px 8px 0 0;
+      font-size: .9rem;
+    }
+    nav a.active {
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-bottom: none;
+    }
+    nav a:hover { color: var(--text); }
+    main { max-width: 68rem; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+    h2 {
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .15em;
+      color: var(--muted);
+      margin: 2.2rem 0 .8rem;
+    }
+    h2:first-child { margin-top: .5rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left;
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      font-weight: 500;
+      padding: .4rem .6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: .55rem .6rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: baseline;
+    }
+    td.rank { color: var(--muted); width: 2rem; }
+    td.score { font-variant-numeric: tabular-nums; font-weight: 600; width: 3.5rem; }
+    .score-high { color: var(--high); }
+    .score-mid { color: var(--mid); }
+    .score-low { color: var(--low); }
+    .artist { font-weight: 600; }
+    .title { color: var(--text); }
+    .title a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--muted); }
+    .title a:hover { color: var(--accent); }
+    .date { color: var(--muted); font-size: .85rem; white-space: nowrap; }
+    .tags { display: flex; gap: .3rem; flex-wrap: wrap; }
+    .tag {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: .05rem .55rem;
+      font-size: .72rem;
+      white-space: nowrap;
+    }
+    .listen a { color: var(--accent); text-decoration: none; font-size: .85rem; white-space: nowrap; }
+    .empty { color: var(--muted); padding: 1.5rem 0; }
+    .statgrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+    }
+    .stat .num { font-size: 1.6rem; font-weight: 600; color: var(--accent); }
+    .stat .label { color: var(--muted); font-size: .8rem; }
+    footer {
+      color: var(--muted);
+      font-size: .78rem;
+      text-align: center;
+      padding: 0 0 2rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="/">shoegazegazer</a></h1>
+    <p class="tagline">new releases, scored against your taste profiles</p>
+    <nav>
+      <% profiles.each do |name| %>
+        <a href="/p/<%= h name %>" class="<%= 'active' if defined?(@profile) && @profile == name %>"><%= h name %></a>
+      <% end %>
+      <a href="/stats" class="<%= 'active' if request.path_info == '/stats' %>">stats</a>
+    </nav>
+  </header>
+  <main>
+    <%= yield %>
+  </main>
+  <footer>refresh the data with <code>bin/shoegazegazer --all</code></footer>
+</body>
+</html>
