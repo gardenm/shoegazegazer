@@ -19,7 +19,58 @@ Get a free key at https://www.last.fm/api/account/create
 ## Usage
 
 ```
-bundle exec bin/shoegazegazer
+bundle exec bin/shoegazegazer                      # weekly digest, default profile
+bundle exec bin/shoegazegazer --profile shoegaze   # use config/profiles/shoegaze.yml
+bundle exec bin/shoegazegazer --all                # run every profile in config/profiles/
+bundle exec bin/shoegazegazer --missed             # catch-up: last 12 months' high scorers
+bundle exec bin/shoegazegazer --stats              # database stats for the current profile
+```
+
+## Profiles
+
+One taste profile can't cover a whole record collection — a tag list broad
+enough to catch both Whirr and Autechre matches everything and ranks nothing.
+Instead, keep one focused profile per style you follow. Three starters live in
+`config/profiles/` (edit them freely, or add your own):
+
+| Profile | Flavour |
+|---------|---------|
+| `shoegaze` | Slowdive, MBV, dream pop, noise pop |
+| `ambient_electronic` | Four Tet, Boards of Canada, IDM, drone |
+| `post_rock` | Mogwai, Explosions in the Sky, instrumental builds |
+
+`--profile NAME` picks one; `--all` runs the digest for each profile in turn.
+Every profile keeps its own scores in the database (keyed by the config
+file's basename), so an album can rank 85 for shoegaze and 20 for ambient
+without either run clobbering the other.
+
+## Persistence
+
+Everything is stored in a SQLite database at `db/shoegazegazer.db`
+(created automatically, gitignored; override the location with
+`SHOEGAZEGAZER_DB=/path/to.db`):
+
+- **albums** — every release ever seen, deduplicated on a normalised
+  artist/title pair (case- and punctuation-insensitive). A rescrape never
+  loses a known rating or URL.
+- **album_scores** — one row per album *per profile*, with the full score
+  breakdown and the Last.fm tags used. Scores are cached for 12 hours, so
+  re-running the digest doesn't re-hit the Last.fm API.
+- **scrape_runs** — a log of every scrape. Sources are only scraped once
+  per day; later runs (including `--all`'s per-profile passes) reuse the
+  day's catch.
+
+### --missed
+
+The weekly digest only looks at the last 14 days, so an album you didn't run
+the tool for can slip past. `--missed` scores anything from the last 12
+months that this profile hasn't rated yet, then shows the top 20 albums
+scoring ≥ 50 that haven't been surfaced in the last 30 days.
+
+## Tests
+
+```
+bundle exec rake test
 ```
 
 ## How scoring works

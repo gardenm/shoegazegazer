@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'json'
+require 'sequel'
 require_relative 'config'
 require_relative 'lastfm'
 
@@ -40,6 +42,31 @@ module Scorer
     return 12.0 if score.nil?
 
     (score / 100.0) * 25.0
+  end
+
+  # Persist a score breakdown for one album under one profile.
+  # Re-scoring the same album+profile overwrites the previous row.
+  def self.upsert_score(db, album_id:, profile_name:, breakdown:, tags:)
+    db[:album_scores].insert_conflict(
+      target: %i[album_id profile_name],
+      update: {
+        similarity_score: Sequel[:excluded][:similarity_score],
+        artist_score: Sequel[:excluded][:artist_score],
+        tag_score: Sequel[:excluded][:tag_score],
+        metacritic_score: Sequel[:excluded][:metacritic_score],
+        tags: Sequel[:excluded][:tags],
+        scored_at: Sequel[:excluded][:scored_at]
+      }
+    ).insert(
+      album_id: album_id,
+      profile_name: profile_name,
+      similarity_score: breakdown[:total],
+      artist_score: breakdown[:artist_score],
+      tag_score: breakdown[:tag_score],
+      metacritic_score: breakdown[:metacritic_score],
+      tags: JSON.generate(tags),
+      scored_at: Time.now
+    )
   end
 end
 

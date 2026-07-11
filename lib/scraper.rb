@@ -10,7 +10,8 @@ module Scraper
   BASE_URL     = 'https://www.albumoftheyear.org'
   RELEASES_URL = "#{BASE_URL}/releases/".freeze
   HEADERS = {
-    'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' \
+                    '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Accept-Language' => 'en-US,en;q=0.9'
   }.freeze
 
@@ -150,6 +151,61 @@ module Scraper
     str.downcase.gsub(/[[:punct:]]/, '').gsub(/\s+/, ' ').strip
   end
 
+  # --- Persistence -----------------------------------------------------
+
+  # Insert or refresh an album, deduplicating on the normalised
+  # artist/title pair. A nil score or url never clobbers a known value.
+  def self.upsert_album(db, album)
+    db[:albums].insert_conflict(
+      target: %i[artist_norm title_norm],
+      update: {
+        aoty_score: Sequel.function(:coalesce, Sequel[:excluded][:aoty_score],
+                                    Sequel[:albums][:aoty_score]),
+        url: Sequel.function(:coalesce, Sequel[:excluded][:url],
+                             Sequel[:albums][:url]),
+        release_date: Sequel.function(:coalesce, Sequel[:excluded][:release_date],
+                                      Sequel[:albums][:release_date])
+      }
+    ).insert(
+      artist: album[:artist],
+      title: album[:title],
+      release_date: album[:release_date],
+      source: album[:source],
+      url: album[:url],
+      aoty_score: album[:score],
+      artist_norm: normalise(album[:artist]),
+      title_norm: normalise(album[:title]),
+      created_at: Time.now
+    )
+  end
+
+  def self.record_scrape_run(db, source, albums_found)
+    db[:scrape_runs].insert(scraped_at: Time.now, source: source,
+                            albums_found: albums_found)
+  end
+
+  def self.todays_scrape?(db)
+    midnight = Date.today.to_time
+    !db[:scrape_runs].where { scraped_at >= midnight }.empty?
+  end
+
+  # Albums released within the last `days`, shaped like fetch_* results
+  # (aoty_score exposed as :score) plus the DB id.
+  def self.recent_albums(db, days: 14)
+    cutoff = Date.today - days
+    db[:albums].where { release_date >= cutoff }.map do |row|
+      {
+        id: row[:id],
+        artist: row[:artist],
+        title: row[:title],
+        release_date: row[:release_date],
+        source: row[:source],
+        url: row[:url],
+        score: row[:aoty_score]
+      }
+    end
+  end
+
   # Parses "Mar 21 • LP" → Date. Year is inferred: if the month/day would be
   # in the future relative to today, it belongs to the previous year.
   def self.parse_date(type_text, today = Date.today)
@@ -175,7 +231,7 @@ if __FILE__ == $PROGRAM_NAME
   albums = Scraper.fetch_musicbrainz(days_recent: 14, pages: 2)
 
   puts "Found #{albums.size} albums in the last 14 days\n\n"
-  puts format('%-32s %-42s %s', 'ARTIST', 'TITLE', 'RELEASE DATE')
+  puts format('%-32s %-42s %s', 'ARTIST', 'TITLE', 'RELEASE DATE') # rubocop:disable Style/RedundantFormat
   puts '-' * 90
   albums.first(10).each do |a|
     puts format('%-32s %-42s %s', a[:artist].to_s[0, 31], a[:title].to_s[0, 41], a[:release_date].to_s)

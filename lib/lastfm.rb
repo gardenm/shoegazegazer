@@ -47,10 +47,12 @@ module LastFm
   end
 
   def self.get(params)
-    HTTParty.get(BASE_URI, query: params.merge(
+    resp = HTTParty.get(BASE_URI, query: params.merge(
       api_key: ENV.fetch('LASTFM_API_KEY'),
       format: 'json'
     )).parsed_response
+    # Errors sometimes come back as plain text/HTML rather than JSON
+    resp.is_a?(Hash) ? resp : { 'error' => resp.to_s }
   end
 
   def self.fetch(type, key)
