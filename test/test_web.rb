@@ -138,4 +138,34 @@ class TestWebApp < Minitest::Test
     digest = JSON.parse(last_response.body)
     assert_empty digest
   end
+
+  # --- PWA / Add to Dock ---
+
+  def test_manifest_is_served_as_json
+    get '/manifest.webmanifest'
+
+    assert last_response.ok?
+    assert_includes last_response.content_type, 'application/manifest+json'
+
+    manifest = JSON.parse(last_response.body)
+    assert_equal 'shoegazegazer', manifest['name']
+    assert_equal 'standalone', manifest['display']
+    assert_equal '/icon-512.png', manifest['icons'].first['src']
+  end
+
+  def test_app_icons_are_served
+    %w[/icon-512.png /apple-touch-icon.png].each do |path|
+      get path
+      assert last_response.ok?, "#{path} not served"
+      assert_includes last_response.content_type, 'image/png'
+    end
+  end
+
+  def test_layout_links_manifest_and_touch_icon
+    seed_scored_album!
+    get '/p/shoegaze'
+
+    assert_includes last_response.body, 'rel="manifest"'
+    assert_includes last_response.body, 'apple-touch-icon'
+  end
 end

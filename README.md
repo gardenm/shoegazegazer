@@ -83,6 +83,24 @@ There's also a JSON endpoint per profile for shortcuts/automations:
 
 Bind/port via env: `HOST=0.0.0.0 PORT=8080 bundle exec bin/shoegazegazer-web`.
 
+## Run it like a Mac app
+
+```
+macos/install.sh
+```
+
+This installs two launchd agents:
+
+- **com.shoegazegazer.web** keeps the web UI running at login
+  (`PORT=8080 macos/install.sh` to change the port)
+- **com.shoegazegazer.refresh** runs `--all` every Friday at 09:30 (New
+  Music Friday) and posts a macOS notification when the digest is ready
+
+Then open http://127.0.0.1:4567 in Safari and choose **File → Add to
+Dock**: the app manifest gives it its own icon and a standalone window, so
+it looks and behaves like a native app. Remove everything with
+`macos/install.sh uninstall`; logs land in `/tmp/shoegazegazer-*.log`.
+
 ## Tests
 
 ```

@@ -13,6 +13,7 @@ class ShoegazegazerWeb < Sinatra::Base
   PROFILES_DIR = File.expand_path('../config/profiles', __dir__)
 
   set :views, File.expand_path('views', __dir__)
+  set :public_folder, File.expand_path('public', __dir__)
   # Personal tool served on localhost — skip Host-header authorization
   set :host_authorization, { permitted_hosts: [] }
 
@@ -84,6 +85,22 @@ class ShoegazegazerWeb < Sinatra::Base
     def h(text)
       Rack::Utils.escape_html(text.to_s)
     end
+  end
+
+  # Web app manifest so Safari's "Add to Dock" (and any browser's
+  # "install app") gives shoegazegazer its own icon and window.
+  get '/manifest.webmanifest' do
+    content_type 'application/manifest+json'
+    {
+      name: 'shoegazegazer',
+      short_name: 'shoegazegazer',
+      description: 'New releases, scored against your taste profiles',
+      start_url: '/',
+      display: 'standalone',
+      background_color: '#14121a',
+      theme_color: '#14121a',
+      icons: [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }]
+    }.to_json
   end
 
   get '/' do
