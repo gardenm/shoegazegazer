@@ -1,10 +1,57 @@
+#!/usr/bin/env ruby
 # frozen_string_literal: true
-
-# !/usr/bin/env ruby
 
 require 'dotenv/load'
 require 'tty-spinner'
 require 'pastel'
+require 'rbconfig'
+require 'json'
+
+PROFILES_DIR = File.expand_path('../config/profiles', __dir__)
+
+if ARGV.include?('--help') || ARGV.include?('-h')
+  puts <<~HELP
+    shoegazegazer — score new releases against your taste profiles
+
+    Usage: bin/shoegazegazer [options]
+
+    Options:
+      --profile NAME     Use config/profiles/NAME.yml (scores tracked per profile)
+      --config PATH      Use an arbitrary profile yml
+      --all              Run every profile in config/profiles/, one after another
+      --missed           Catch-up digest: high scorers from the last 12 months
+                         you haven't been shown recently
+      --stats            Show database statistics for the current profile
+      --help, -h         Show this help
+
+    With no options, runs the weekly digest against config/taste_profile.yml.
+  HELP
+  exit
+end
+
+# --all re-runs this script once per profile file. The first run scrapes;
+# the rest reuse today's scrape from the database, so it stays fast.
+if ARGV.include?('--all')
+  profiles = Dir[File.join(PROFILES_DIR, '*.yml')]
+  abort "No profiles found in #{PROFILES_DIR}" if profiles.empty?
+
+  passthrough = ARGV - ['--all']
+  pastel = Pastel.new
+  profiles.each do |path|
+    puts pastel.bold.underline("\n◉ Profile: #{File.basename(path, '.yml')}")
+    system(RbConfig.ruby, __FILE__, '--config', path, *passthrough) || exit(1)
+  end
+  exit
+end
+
+# Parse --profile NAME (sugar for --config config/profiles/NAME.yml)
+if (idx = ARGV.index('--profile'))
+  profile_name = ARGV[idx + 1]
+  raise '--profile requires a name argument' if profile_name.nil?
+
+  ARGV.slice!(idx, 2)
+  ENV['SHOEGAZEGAZER_CONFIG'] = File.join(PROFILES_DIR, "#{profile_name}.yml")
+end
 
 # Parse --config path/to/custom.yml before loading config
 if (idx = ARGV.index('--config'))
@@ -16,52 +63,221 @@ if (idx = ARGV.index('--config'))
 end
 
 require_relative '../lib/config'
+require_relative '../lib/database'
 require_relative '../lib/scraper'
 require_relative '../lib/lastfm'
 require_relative '../lib/scorer'
+require_relative '../lib/feedback'
 require_relative '../lib/formatter'
 
-pastel  = Pastel.new
-spinner = TTY::Spinner.new('[:spinner] :title', format: :dots)
+PASTEL = Pastel.new
+DB = Database.migrate
 
-# Step 1 — fetch from all sources + dedup
-spinner.update(title: 'Fetching new releases...')
-spinner.auto_spin
-aoty_albums  = Scraper.fetch_aoty
-mb_albums    = Scraper.fetch_musicbrainz
-albums       = Scraper.dedup(aoty_albums + mb_albums)
-spinner.success(pastel.green("done (#{aoty_albums.size} AOTY + #{mb_albums.size} MusicBrainz = #{albums.size} unique)"))
-
-# Step 2 — filter low-rated albums
-albums = albums.reject { |a| !a[:score].nil? && a[:score] < TASTE_PROFILE[:min_score] }
-
-# Step 3 — enrich tags + score
-spinner = TTY::Spinner.new('[:spinner] :title', format: :dots)
-spinner.update(title: 'Scoring against your taste profile...')
-spinner.auto_spin
-
-scored = albums.map do |album|
-  album_tags = LastFm.album_tags(album[:artist], album[:title])
-  similarity = Scorer.score(
-    artist: album[:artist],
-    title: album[:title],
-    tags: album_tags,
-    metacritic_score: album[:score]
-  )
-  album.merge(
-    similarity_score: similarity,
-    tags: album_tags,
-    apple_music_url: Scraper.apple_music_url(album[:artist], album[:title])
-  )
+def spin(title)
+  spinner = TTY::Spinner.new('[:spinner] :title', format: :dots)
+  spinner.update(title: title)
+  spinner.auto_spin
+  result = yield(spinner)
+  spinner.success(PASTEL.green('done')) unless spinner.done?
+  result
 end
 
-spinner.success(pastel.green('done'))
+def fmt_num(n)
+  n.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse
+end
 
-# Step 4 — sort, take top 20
-results = scored.sort_by { |a| -a[:similarity_score] }.first(20)
+def below_min_score?(score)
+  !score.nil? && score < TASTE_PROFILE[:min_score]
+end
 
-puts
-Formatter.print_results(results)
+def feedback_prefs
+  @feedback_prefs ||= Feedback.prefs(DB, TASTE_PROFILE_NAME)
+end
 
-puts
-puts pastel.dim("Powered by Last.fm • Album of the Year • MusicBrainz • #{Time.now.strftime('%A, %B %d %Y')}")
+# Score one album via Last.fm and persist the breakdown for this profile.
+# Thumbs up/down history shifts the total. Returns [similarity_score, tags].
+def score_and_store(album_id:, artist:, title:, aoty_score:)
+  tags = LastFm.album_tags(artist, title)
+  breakdown = Scorer.score_breakdown(
+    artist: artist, title: title, tags: tags, metacritic_score: aoty_score
+  )
+  adjustment = Feedback.adjustment(feedback_prefs, artist, tags)
+  breakdown[:total] = (breakdown[:total] + adjustment).clamp(0.0, 100.0)
+  Scorer.upsert_score(DB, album_id: album_id, profile_name: TASTE_PROFILE_NAME,
+                          breakdown: breakdown, tags: tags)
+  [breakdown[:total], tags]
+end
+
+def print_digest(results, empty_message)
+  if results.empty?
+    puts PASTEL.yellow(empty_message)
+  else
+    puts
+    Formatter.print_results(results)
+  end
+
+  puts
+  puts PASTEL.dim("Profile: #{TASTE_PROFILE_NAME} • Powered by Last.fm • " \
+                  "Album of the Year • MusicBrainz • #{Time.now.strftime('%A, %B %d %Y')}")
+end
+
+# ---------------------------------------------------------------------------
+# --stats: database overview for the current profile
+# ---------------------------------------------------------------------------
+def run_stats
+  total_albums = DB[:albums].count
+  scored       = DB[:album_scores].where(profile_name: TASTE_PROFILE_NAME).count
+  runs         = DB[:scrape_runs].count
+  oldest       = DB[:albums].min(:release_date)
+  last_scrape  = DB[:scrape_runs].max(:scraped_at)
+
+  puts PASTEL.bold("Database stats — profile '#{TASTE_PROFILE_NAME}'")
+  puts "  Albums tracked:        #{fmt_num(total_albums)}"
+  puts "  Scored (this profile): #{fmt_num(scored)}"
+  puts "  Scrape runs:           #{fmt_num(runs)}"
+  puts "  Oldest release:        #{oldest || '—'}"
+  puts "  Last scrape:           #{last_scrape || 'never'}"
+
+  top = DB[:album_scores]
+        .join(:albums, id: :album_id)
+        .where(Sequel[:album_scores][:profile_name] => TASTE_PROFILE_NAME)
+        .order(Sequel.desc(Sequel[:album_scores][:similarity_score]))
+        .limit(10)
+        .select(Sequel[:albums][:artist],
+                Sequel[:albums][:title],
+                Sequel[:album_scores][:similarity_score])
+        .all
+
+  return if top.empty?
+
+  puts
+  puts PASTEL.bold('All-time top 10 for this profile:')
+  top.each_with_index do |row, i|
+    score = format('%5.1f', row[:similarity_score])
+    puts "  #{format('%2d', i + 1)}. #{PASTEL.green(score)}  #{row[:artist]} — #{row[:title]}"
+  end
+end
+
+# ---------------------------------------------------------------------------
+# --missed: high scorers from the last 12 months not surfaced recently
+# ---------------------------------------------------------------------------
+def run_missed
+  run_start   = Time.now
+  cutoff_12mo = Date.today - 365
+  profile     = TASTE_PROFILE_NAME
+
+  unscored = DB[:albums]
+             .left_join(:album_scores, album_id: :id, profile_name: profile)
+             .where { Sequel[:albums][:release_date] >= cutoff_12mo }
+             .where(Sequel[:album_scores][:id] => nil)
+             .select_all(:albums)
+             .all
+             .reject { |a| below_min_score?(a[:aoty_score]) }
+
+  unless unscored.empty?
+    spin("Scoring #{unscored.size} albums not yet rated for this profile...") do
+      unscored.each do |row|
+        score_and_store(album_id: row[:id], artist: row[:artist],
+                        title: row[:title], aoty_score: row[:aoty_score])
+      end
+    end
+  end
+
+  cutoff_30d = Time.now - (30 * 86_400)
+
+  # Albums surfaced in the last 30 days (before this run) don't count as missed
+  recently_surfaced_ids = DB[:album_scores]
+                          .where(profile_name: profile)
+                          .where { scored_at >= cutoff_30d }
+                          .where { scored_at < run_start }
+                          .select(:album_id)
+
+  results = DB[:albums]
+            .join(:album_scores, Sequel[:album_scores][:album_id] => Sequel[:albums][:id])
+            .where(Sequel[:album_scores][:profile_name] => profile)
+            .where { Sequel[:albums][:release_date] >= cutoff_12mo }
+            .where { Sequel[:album_scores][:similarity_score] >= 50 }
+            .exclude(Sequel[:albums][:id] => recently_surfaced_ids)
+            .order(Sequel.desc(Sequel[:album_scores][:similarity_score]))
+            .limit(20)
+            .select(
+              Sequel[:albums][:id],
+              Sequel[:albums][:artist],
+              Sequel[:albums][:title],
+              Sequel[:albums][:source],
+              Sequel[:album_scores][:similarity_score],
+              Sequel[:album_scores][:tags].as(:score_tags)
+            )
+            .all
+            .map do |row|
+              {
+                artist: row[:artist],
+                title: row[:title],
+                source: row[:source],
+                similarity_score: row[:similarity_score],
+                tags: JSON.parse(row[:score_tags] || '[]'),
+                apple_music_url: Scraper.apple_music_url(row[:artist], row[:title])
+              }
+            end
+
+  puts PASTEL.bold('Catch-up digest — albums from the last 12 months you may have missed')
+  print_digest(results, 'Nothing missed — you are all caught up!')
+end
+
+# ---------------------------------------------------------------------------
+# Default: weekly digest (scrape once per day, 12-hour score cache)
+# ---------------------------------------------------------------------------
+def run_digest
+  if Scraper.todays_scrape?(DB)
+    puts PASTEL.dim("Using today's earlier scrape (already fetched)")
+  else
+    spin('Fetching new releases...') do |spinner|
+      aoty = Scraper.fetch_aoty
+      mb   = Scraper.fetch_musicbrainz
+      Scraper.dedup(aoty + mb).each { |album| Scraper.upsert_album(DB, album) }
+      Scraper.record_scrape_run(DB, 'aoty', aoty.size)
+      Scraper.record_scrape_run(DB, 'musicbrainz', mb.size)
+      spinner.success(PASTEL.green("done (#{aoty.size} AOTY + #{mb.size} MusicBrainz)"))
+    end
+  end
+
+  albums = Scraper.recent_albums(DB, days: 14)
+                  .reject { |a| below_min_score?(a[:score]) }
+
+  twelve_hours_ago = Time.now - (12 * 3600)
+  profile          = TASTE_PROFILE_NAME
+
+  scored = spin("Scoring #{albums.size} albums against '#{profile}'...") do
+    albums.map do |album|
+      cached = DB[:album_scores]
+               .where(album_id: album[:id], profile_name: profile)
+               .where { scored_at >= twelve_hours_ago }
+               .first
+
+      similarity, tags =
+        if cached
+          [cached[:similarity_score], JSON.parse(cached[:tags] || '[]')]
+        else
+          score_and_store(album_id: album[:id], artist: album[:artist],
+                          title: album[:title], aoty_score: album[:score])
+        end
+
+      album.merge(
+        similarity_score: similarity,
+        tags: tags,
+        apple_music_url: Scraper.apple_music_url(album[:artist], album[:title])
+      )
+    end
+  end
+
+  results = scored.sort_by { |a| -a[:similarity_score] }.first(20)
+  print_digest(results, 'No recent releases matched — try again later in the week.')
+end
+
+if ARGV.include?('--stats')
+  run_stats
+elsif ARGV.include?('--missed')
+  run_missed
+else
+  run_digest
+end

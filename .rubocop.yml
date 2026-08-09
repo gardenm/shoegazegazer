@@ -1,0 +1,35 @@
+AllCops:
+  NewCops: enable
+  SuggestExtensions: false
+  TargetRubyVersion: 3.3
+
+# Scrapers and CLI glue read better as one linear method
+Metrics:
+  Enabled: false
+
+Style/Documentation:
+  Enabled: false
+
+# %-32s-style format strings are used deliberately for table output
+Style/FormatStringToken:
+  Enabled: false
+
+# cutoff_30d / cutoff_12mo are clearer than cutoff30d
+Naming/VariableNumber:
+  Enabled: false
+
+Naming/MethodParameterName:
+  AllowedNames: [n, db]
+
+# Grouping related Minitest classes per file is idiomatic
+Style/OneClassPerFile:
+  Exclude:
+    - test/**/*
+
+Layout/ExtraSpacing:
+  Exclude:
+    - test/**/*
+
+Style/SpecialGlobalVars:
+  Exclude:
+    - test/**/*

@@ -1,0 +1,30 @@
+<table>
+  <tr><th></th><th>Artist</th><th>Album</th><th>Score</th><th>Released</th><th>Tags</th><th></th><th></th></tr>
+  <% rows.each_with_index do |row, i| %>
+    <tr>
+      <td class="rank"><%= i + 1 %></td>
+      <td class="artist"><%= h row[:artist] %></td>
+      <td class="title">
+        <% if row[:url] %><a href="<%= h row[:url] %>"><%= h row[:title] %></a><% else %><%= h row[:title] %><% end %>
+      </td>
+      <td class="score <%= score_class(row[:similarity_score]) %>"><%= format('%.1f', row[:similarity_score]) %></td>
+      <td class="date"><%= h row[:release_date] %></td>
+      <td><span class="tags"><% parse_tags(row[:tags]).each do |tag| %><span class="tag"><%= h tag %></span><% end %></span></td>
+      <td class="rate">
+        <form method="post" action="/rate">
+          <input type="hidden" name="album_id" value="<%= row[:album_id] %>">
+          <input type="hidden" name="profile" value="<%= h profile %>">
+          <input type="hidden" name="rating" value="<%= row[:rating] == 1 ? 0 : 1 %>">
+          <button class="thumb <%= 'thumb-up' if row[:rating] == 1 %>" title="more like this">▲</button>
+        </form>
+        <form method="post" action="/rate">
+          <input type="hidden" name="album_id" value="<%= row[:album_id] %>">
+          <input type="hidden" name="profile" value="<%= h profile %>">
+          <input type="hidden" name="rating" value="<%= row[:rating] == -1 ? 0 : -1 %>">
+          <button class="thumb <%= 'thumb-down' if row[:rating] == -1 %>" title="less like this">▼</button>
+        </form>
+      </td>
+      <td class="listen"><a href="<%= h apple_music_url(row[:artist], row[:title]) %>">listen →</a></td>
+    </tr>
+  <% end %>
+</table>

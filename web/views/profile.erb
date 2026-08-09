@@ -1,0 +1,15 @@
+<h2>Fresh — released in the last 14 days</h2>
+<% if @recent.empty? %>
+  <p class="empty">Nothing scored from the last two weeks — run <code>bin/shoegazegazer --profile <%= h @profile %></code> to fetch and score new releases.</p>
+<% else %>
+  <%= erb :_album_table, layout: false, locals: { rows: @recent, profile: @profile } %>
+<% end %>
+
+<h2>Back catalogue — high scorers from the past year</h2>
+<% if @catalogue.empty? %>
+  <p class="empty">No albums scoring 50+ yet — run <code>bin/shoegazegazer --profile <%= h @profile %> --missed</code> to score the past year.</p>
+<% else %>
+  <%= erb :_album_table, layout: false, locals: { rows: @catalogue, profile: @profile } %>
+<% end %>
+
+<p class="hint">▲ more like this / ▼ less like this — ratings retune this profile's scores instantly and shape future digests.</p>
